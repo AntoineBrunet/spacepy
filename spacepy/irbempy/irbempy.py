@@ -9,7 +9,7 @@ D. Boscher, S. Bourdarie, T. P. O'Brien, T. Guild, IRBEM library V4.3, 2004-2008
 
 Authors
 -------
-Josef Koller, Steve Morley 
+Josef Koller, Steve Morley, Antoine Brunet 
 
 Copyright 2010 Los Alamos National Security, LLC.
 """
@@ -1727,6 +1727,129 @@ def _multi_get_Lstar(inputs):
     DALL = _get_Lstar(ticks, loci, alpha, extMag, options, omnivals)
     
     return DALL
+
+def get_MSIS(loci, ticks=None, ap=None, f107=None, f107a = None, model="MSIS-86"):
+    """
+    Return neutral densities and temperatures in Earth's atmosphere
+    according to the MSIS model family.
+
+    Parameters
+    ==========
+        - loci (Coords class) : containing spatial information
+        - ticks (Ticktock class) : containing time information
+        - ap (ndarray) : optional Ap index values; the OMNI2 values will be
+          fetched if not provided
+        - f107, f107a (ndarray) : Daily and 3 month average F10.7 flux; the instant
+          OMNI2 fluxes will be used if not provided
+        - model (string) : model name; possible values are ['MSIS-86',
+          'MSISE-90', 'NRMLSISE-00']
+
+    Returns
+    =======
+        - densities (ndarray) : Number densities in cm^-3. For the 86 and 90 models
+          the lines corresponds to He, O, N2, O2, Ar, Total mass (g/cm3), H, N.
+          For the ``NRMLSISE-00`` model, a 9nth column corresponds to
+          the Anomalous oxygen number density.
+        - temperatures (ndarray) : Exospheric and local temperatures.
+
+    Notes
+    =====
+    For the ``ap`` parameter, two kinds of input are allowed:
+        - Only daily Ap magnetic index (1D array)
+        - A 7 elements description (2D array): 
+            - Daily Ap
+            - 3h Ap for current time,
+            - 3h Ap 3 hours before current time
+            - 3h Ap 6 hours before current time
+            - 3h Ap 9 hours before current time
+            - Average of 3h Ap from 12 to 33 hours prior to current time
+            - Average of 3h Ap from 36 to 59 hours prior to current time
+
+    The Mass-Spectrometer-Incoherent-Scatter-1986 (MSIS-86) neutral
+    atmosphere model describes the neutral temperature and the densities of
+    He, O, N2, O2, Ar, H, and N. The MSIS model is based on the extensive
+    data compilation and analysis work of A. E. Hedin and his collaborators
+    [A. E. Hedin et al., J. Geophys. Res. 82, 2139-2156, 1977; A. E. Hedin,
+    J. Geophys. Res. 88, 10170- 10188, 1983; A. E. Hedin, J. Geophys. Res.
+    92, 4649, 1987]. MSIS-86 constitutes the upper part of the COSPAR
+    International Reference Atmosphere (CIRA-86).
+    Data sources for the present model include temperature and density
+    measurements from several rockets, satellites (OGO-6, San Marco 3, Aeros-A,
+    AE-C, AE-D, AE-E, ESRO 4 and DE-2) and incoherent scatter radars (Millstone
+    Hill, St. Santin, Arecibo, Jicamarca, and Malvern). Since the MSIS-83 model,
+    terms were added or changed to better represent seasonal variations in the
+    polar regions under both quiet and magnetically disturbed conditions and
+    local time variations in the magnetic activity effect. In addition a new
+    species, atomic nitrogen, was added to the list of species covered by the
+    model. 
+
+    The NRLMSIS-00 empirical atmosphere model was developed by Mike Picone,
+    Alan Hedin, and Doug Drob based on the MSISE90 model. The main
+    differences to MSISE90 are noted in the comments at the top of the
+    computer code. They involve (1) the extensive use of drag and
+    accelerometer data on total mass density, (2) the addition of a
+    component to the total mass density that accounts for possibly
+    significant contributions of O+ and hot oxygen at altitudes above 500
+    km, and (3) the inclusion of the SMM UV occultation data on [O2]. The
+    MSISE90 model describes the neutral temperature and densities in Earth's
+    atmosphere from ground to thermospheric heights. Below 72.5 km the model
+    is primarily based on the MAP Handbook (Labitzke et al., 1985)
+    tabulation of zonal average temperature and pressure by Barnett and
+    Corney, which was also used for the CIRA-86. Below 20 km these data were
+    supplemented with averages from the National Meteorological Center
+    (NMC). In addition, pitot tube, falling sphere, and grenade sounder
+    rocket measurements from 1947 to 1972 were taken into consideration.
+    Above 72.5 km MSISE-90 is essentially a revised MSIS-86 model taking
+    into account data derived from space shuttle flights and newer
+    incoherent scatter results. For someone interested only in the
+    thermosphere (above 120 km), the author recommends the MSIS-86 model.
+    MSISE is also not the model of preference for specialized tropospheric
+    work. It is rather for studies that reach across several atmospheric
+    boundaries.
+    """
+    models = {
+        "MSIS-86" : oplib.msis86,
+        "MSISE-90" : oplib.msise90,
+        "NRLMSISE-00" : oplib.nrlmsise00
+    }
+    if model not in models:
+        raise ValueError(
+            "{} is not a valid model name ({})".format(mode, ', '.join(models.keys()))
+        )
+    if ticks is None:
+        ticks = loci.ticks
+    if ap is None or f107 is None:
+        import spacepy.omni as omni
+        omni_data = omni.get_omni(ticks, dbase='OMNI2hourly')
+        if ap is None:
+            ap = omni_data['Ap_index']
+        if f107 is None:
+            f107 = omni_data['f10_7_index']
+    n = len(ticks)
+    loci = loci.convert("GDZ", "sph")
+    d = prep_irbem(ticks = ticks, loci = loci)
+    in_ap = np.zeros((7,d['ntime_max']), dtype=float)
+    in_f107 = np.zeros(d['ntime_max'], dtype=float)
+    in_f107a = np.zeros(d['ntime_max'], dtype=float)
+    if len(ap.shape) > 1:
+        if (ap.shape[0] == 7):
+            in_ap[:,:n] = ap
+        else:
+            in_ap[:,:n] = ap.T
+        which_ap = 2
+    else :
+        in_ap[0,:n] = ap
+        which_ap = 1
+    in_f107[:n] = f107
+    if f107a is None:
+        in_f107a[:n] = f107
+    else:
+        in_f107a[:n] = f107a
+    out_dens, out_temp = models[model](
+        n, which_ap, d['idoysat'], d['utsat'],
+        d['xin1'], d['xin2'], d['xin3'], in_f107a, in_f107, in_ap
+    )
+    return np.array(out_dens[:,:n]), np.array(out_temp[:,:n])
 
 # -----------------------------------------------
 def prep_irbem(ticks=None, loci=None, alpha=[], extMag='T01STORM', options=[1,0,0,0,0], omnivals=None): 

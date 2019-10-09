@@ -512,11 +512,12 @@ class build(_build):
         olddir = os.getcwd()
         os.chdir(builddir)
         F90files = ['source/onera_desp_lib.f', 'source/CoordTrans.f', 'source/AE8_AP8.f', 'source/find_foot.f',\
-                    'source/drift_bounce_orbit.f']
+                    'source/drift_bounce_orbit.f', 'source/msis86.f', 'source/msise90.f', 'source/nrlmsise00.f']
         functions = ['make_lstar1', 'make_lstar_shell_splitting1', 'find_foot_point1',\
                      'coord_trans1','find_magequator1', 'find_mirror_point1',
                      'get_field1', 'get_ae8_ap8_flux', 'fly_in_nasa_aeap1',
-                     'trace_field_line2_1', 'trace_field_line_towards_earth1', 'trace_drift_bounce_orbit']
+                     'trace_field_line2_1', 'trace_field_line_towards_earth1', 'trace_drift_bounce_orbit',
+                     'msis86', 'msise90', 'nrlmsise00']
 
         # call f2py
         cmd = self.f2py + ['--overwrite-signature', '-m', 'irbempylib', '-h',
@@ -525,11 +526,12 @@ class build(_build):
         # intent(out) substitute list
         outlist = ['lm', 'lstar', 'blocal', 'bmin', 'xj', 'mlt', 'xout', 'bmin', 'posit', \
                    'xgeo', 'bmir', 'bl', 'bxgeo', 'flux', 'ind', 'xfoot', 'bfoot', 'bfootmag',\
-                   'leI0', 'Bposit', 'Nposit', 'hmin', 'hmin_lon']
+                   'leI0', 'Bposit', 'Nposit', 'hmin', 'hmin_lon', 'dens', 'temp']
 
         inlist = ['sysaxesin', 'sysaxesout', 'iyr', 'idoy', 'secs', 'xin', 'kext', 'options', 
                   'sysaxes', 'UT', 'xIN1', 'xIN2', 'xIN3', 'stop_alt', 'hemi_flag', 'maginput',\
-                  't_resol', 'r_resol', 'lati', 'longi', 'alti', 'R0','xx0']
+                  't_resol', 'r_resol', 'lati', 'longi', 'alti', 'R0','xx0', 'ntime', 'whichap',\
+                  'doy', 'alt', 'lat', 'long_bn', 'f107', 'ap', 'ut']
         fln = 'irbempylib.pyf'
         if not os.path.isfile(fln):
             warnings.warn(
